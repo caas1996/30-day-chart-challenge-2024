@@ -1,0 +1,62 @@
+---
+title: "Day 1: Part to a whole"
+author: "Carlos Alejandro Alvarado Salguero"
+format:
+  html:
+    embed-resources: true
+    self-contained: true
+execute:
+  echo: false
+  warning: false
+---
+
+```{r}
+#devtools::install_version("OECD", version = "0.2.4", repos = "https://stat.ethz.ch/CRAN/")
+pacman::p_load(tidyverse, reactable)
+
+theme_set(theme_light(base_size = 24))
+
+# Directories
+
+main_path <- here::here()
+data_path <- paste0(main_path, "/data/day_01_to_06")
+plots_path <- paste0(main_path, "/plots")
+```
+
+# Getting ILO data
+
+```{r}
+ilo_data_path <- paste0(
+  data_path, "/EES_TEES_SEX_AGE_OCU_NB_A-filtered-2024-04-01.csv"
+  ) 
+ilo_data <- read_csv(ilo_data_path) %>% 
+  select(sex.label, classif1.label, classif2.label, obs_value) %>% 
+  mutate_if(
+    is.character, .funs = ~ str_split(.x, ": ", simplify = TRUE)[,2]
+  ) %>% 
+  rename(
+    gender = sex.label,
+    age_group = classif1.label,
+    skill_level = classif2.label,
+    employees = obs_value
+  )
+```
+
+```{r}
+table_data <- ilo_data %>% 
+  group_by(
+    age_group, skill_level
+  ) %>% 
+  mutate(
+    total = max(employees),
+    share_total = round(employees/total, 4)
+  ) %>% 
+  filter(gender != "Total")
+
+table_data %>% 
+  ggplot(aes(share_total, age_group, fill = gender)) + 
+  geom_col() + 
+  facet_wrap(~skill_level)
+```
+
+
