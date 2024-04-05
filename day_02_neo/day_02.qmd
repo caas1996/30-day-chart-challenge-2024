@@ -13,7 +13,6 @@ execute:
 ```{r include=FALSE}
 pacman::p_load(tidyverse, janitor, extrafont, mxmaps, patchwork)
 loadfonts(device = "win")
-
 theme_set(theme_light(base_size = 20, base_family = "MDLZ BITE TYPE"))
 theme_update(
   strip.background = element_rect("#666666"), 
@@ -98,7 +97,7 @@ evolution_plot <- data_conapo %>%
   ylab("") +  xlab("") + 
   labs(
     title = paste0(
-      "Births by year in millions & Economic crisis in Mexico"
+      "Births by year in millions & Economic crisis in Mexico, a correlation?"
       )
   ) + 
   theme(
