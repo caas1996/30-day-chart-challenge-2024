@@ -1,0 +1,134 @@
+---
+title: "Day 1: Part to a whole"
+author: "Carlos Alejandro Alvarado Salguero"
+format:
+  html:
+    embed-resources: true
+    self-contained: true
+execute:
+  echo: false
+  warning: false
+---
+
+```{r include=FALSE}
+pacman::p_load(tidyverse, janitor, extrafont, readxl, plotly)
+loadfonts(device = "win")
+
+theme_set(theme_light(base_size = 24, base_family = "MDLZ BITE TYPE"))
+theme_update(
+  strip.background = element_rect("#666666"), 
+  text = element_text(colour = "#666666") 
+  )
+
+mdlz_colors <- c("#2D6EAA", "#E18719", "#287819", "#623E23", "#A52323", 
+                 "#E6AF23", "#666666", "#4F2170")
+
+# Directories
+main_path <- here::here()
+main_path <- paste0(main_path, "/day_01_part_to_whole")
+```
+
+```{r}
+labor_data_path <- paste0(main_path, "/day_1_labor-force.xlsx")
+labor_data <- read_xlsx(labor_data_path, sheet = "Table 3.1", skip = 1) %>% 
+  clean_names() %>% 
+  filter(
+    !(is.na(labor_force_2002))
+    ) %>% 
+  select(
+    group, labor_force_2022, labor_force_2032, percent_distribution_2022,
+    percent_distribution_2032, percent_change_2022_32
+    ) %>% 
+  bind_cols(
+    gender = c(rep("Total", 12), rep("Men", 12), rep("Women", 12), rep(NA, 16))
+    ) %>% 
+  filter(
+    !(is.na(gender)), gender != "Total",
+    group %in% c("16 to 24", "25 to 34", "35 to 44", "45 to 54", 
+                 "55 and older")
+    ) %>% 
+  select(gender, group, percent_change_2022_32, everything())
+
+labor_data_long <- labor_data %>% 
+  mutate_at(
+    .vars = c(
+      "labor_force_2022", "labor_force_2032", "percent_distribution_2022",
+      "percent_distribution_2032","percent_change_2022_32"),
+    .funs = as.numeric
+    ) %>% 
+  pivot_longer(cols = labor_force_2022:percent_distribution_2032) %>% 
+  mutate(
+    category = case_when(
+      gender == "Men"   & name == "percent_distribution_2022" ~ "#ABC5DD",
+      gender == "Women"   & name == "percent_distribution_2022" ~ "#F4DB9C",
+      gender == "Men"   & abs(percent_change_2022_32) >= 9 ~ "#2D6EAA",
+      gender == "Women" & abs(percent_change_2022_32) >= 9 ~ "#E6AF23",
+      gender == "Men"   & abs(percent_change_2022_32)  < 9 ~ "#ABC5DD",
+      gender == "Women" & abs(percent_change_2022_32)  < 9 ~ "#F4DB9C",
+      )
+  )
+```
+
+```{r}
+plot <- labor_data_long %>% 
+  filter(
+    name %in% c("percent_distribution_2022", "percent_distribution_2032")
+  ) %>% 
+  mutate(
+    share = value,
+    value = if_else(gender == "Men", value * -1, value),
+    name = if_else(
+      name == "percent_distribution_2022",
+      "% of total labor force 2022", 
+      "% of total labor force 2032"
+      )
+  ) %>% 
+  ggplot(aes(
+    value, group, fill = category,
+    )) + 
+  geom_col(colour = "black", alpha = 0.9) +
+  geom_text(aes(
+    label = share, hjust = if_else(gender == "Men", -.6, 1.6)
+    ), size = 7, colour = "white") + 
+  facet_wrap(~name) + 
+  xlab(paste0(
+    "The age group of 35 to 44 is expected to have a larger share of the labor force.",
+    "<br>The share of elderly women is expected to increase too"
+  )) + 
+  ylab("Age group") +
+  labs(
+    title = paste0('2022 & projected 2032 share of civilian labor force in the US'),
+    subtitle = paste0(
+      'Brighter color = Higher projected change in the share of ',
+      '<span style = "color:#2D6EAA; font-weight:bold">Men </span> &',
+      '<span style = "color:#E6AF23; font-weight:bold"> Women</span>'
+    ),
+    caption = paste0(
+      "Source: Employment Projections program, U.S. Bureau of Labor Statistics",
+      " / Carlos Alvarado"
+    )
+    ) +
+  scale_fill_identity() +
+  theme(
+    #legend.position = "none",
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.title.x = ggtext::element_markdown(
+      size = 20, lineheight = 1.3, color = "black",
+      ),
+    plot.subtitle = ggtext::element_markdown(
+      size = 18, lineheight = 1.3
+        ),
+    plot.caption = element_text(size = 16, color = "gray")
+  )
+
+plot
+
+plot_path <- paste0(main_path, "/plot_day_01.png")
+
+ggsave(
+  filename = plot_path, plot = plot, device = "png", dpi = 300, 
+  width = 16, height = 12, create.dir = T
+  )
+```
+
