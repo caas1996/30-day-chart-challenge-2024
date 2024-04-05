@@ -1,0 +1,136 @@
+---
+title: "Day 2: Neo"
+author: "Carlos Alejandro Alvarado Salguero"
+format:
+  html:
+    embed-resources: true
+    self-contained: true
+execute:
+  echo: false
+  warning: false
+---
+
+```{r include=FALSE}
+pacman::p_load(tidyverse, janitor, extrafont, mxmaps, patchwork)
+loadfonts(device = "win")
+
+theme_set(theme_light(base_size = 20, base_family = "MDLZ BITE TYPE"))
+theme_update(
+  strip.background = element_rect("#666666"), 
+  text = element_text(colour = "#666666") 
+  )
+
+mdlz_colors <- c("#2D6EAA", "#E18719", "#287819", "#623E23", "#A52323", 
+                 "#E6AF23", "#666666", "#4F2170")
+
+# Directories
+main_path <- here::here()
+main_path <- paste0(main_path, "/day_02_neo")
+
+data_conapo_path <- 
+  paste0(main_path, "/05_Indicadores_demograficos_proyecciones.csv")
+```
+
+```{r functions}
+plot_map_fun <- function(data, year = 1970){
+  df <- data
+  year_start <- year
+  year_end <- year + 10
+  title_plot <- paste0(
+    "Change in births: Year ", as.character(year_start), " vs ",
+    as.character(year_end)
+    )
+  data_filtered <- df %>% 
+    filter(year %in% c(year_start, year_end)) %>% 
+    pivot_wider(names_from = year, values_from = nac, names_prefix = "nac_")
+  
+  names(data_filtered) <- c("entidad", "cve_geo", "nac_start", "nac_end")
+  
+  data_filtered <- data_filtered %>% 
+    mutate(value = (round(nac_start/nac_end, 2) - 1) * 100) 
+  
+  data_plot <- df_mxstate_2020 %>% 
+    left_join(data_filtered, by = join_by(state_name == entidad))
+  
+  mxhexbin_choropleth(
+    data_plot, num_colors = 1,
+    title = title_plot,
+    shadow_color = "#111111",
+    auto_contrast = TRUE
+    ) + 
+    scale_fill_gradient("Change %", low = "white", high = "#287819")
+}
+
+plot_a_list <- function(master_list_with_plots, no_of_rows, no_of_cols) {
+
+  patchwork::wrap_plots(master_list_with_plots, 
+                        nrow = no_of_rows, ncol = no_of_cols)
+}
+```
+
+```{r}
+data_conapo <- read_csv(data_conapo_path) %>% 
+  clean_names() %>% 
+  rename(
+    year = ano
+  ) %>% 
+  select(year:cve_geo, nac) %>% 
+  filter(year <= 2030)
+```
+
+
+```{r}
+evolution_plot <- data_conapo %>% 
+  filter(cve_geo == 0) %>% 
+  ggplot(aes(year, nac/1000000)) + 
+  geom_vline(xintercept = 1976, linetype = 2, linewidth = 1) + 
+  geom_vline(xintercept = 1982, linetype = 2, linewidth = 1) +
+  geom_vline(xintercept = 1994, linetype = 2, linewidth = 1) +
+  geom_vline(xintercept = 2008, linetype = 2, linewidth = 1) + 
+  geom_line(linewidth = 2, colour = "#A52323") +
+  annotate(
+    "text", y = 1.8, angle = 90, x = c(1975, 1981, 1993, 2007), 
+    label = c("Mexican peso devaluation", "External debt crisis", 
+              "Banking crisis", "Sub-prime crisis"), size = 5
+           ) +
+  scale_y_continuous(n.breaks = 10) +
+  scale_x_continuous(n.breaks = 10) +
+  ylab("") +  xlab("") + 
+  labs(
+    title = paste0(
+      "Births by year in millions & Economic crisis in Mexico"
+      )
+  ) + 
+  theme(
+    plot.title = element_text(colour = "#287819", size = 20)
+  )
+```
+
+
+```{r final_plot}
+test <- tibble(year_start = seq(1970, 2020, by = 10)) %>% 
+  mutate(
+    year_end = year_start + 10, 
+    plot_map = map(year_start, ~plot_map_fun(data_conapo, .x))
+  )
+
+p <- plot_a_list(test$plot_map, 2, 3) 
+
+p <- evolution_plot / p
+
+p <- p + plot_layout(heights = c(1, 2)) + 
+  patchwork::plot_annotation(
+    title = 'Neo Mexicans: Births data & projections for Mexico',
+    caption = 'Source: CONAPO / Carlos Alvarado'
+  )
+
+p
+
+plot_path <- paste0(main_path, "/plot_day_02.png")
+
+ggsave(
+  filename = plot_path, plot = p, device = "png", dpi = 300, 
+  width = 16, height = 12, create.dir = T
+  )
+
+```
